@@ -332,10 +332,10 @@ func locationConfigForLua(l interface{}, a interface{}) string {
 		return "{}"
 	}
 
-	ignoredCIDRs, err := convertGoSliceIntoLuaTable(location.GlobalRateLimit.IgnoredCIDRs, false)
+	ignoredHeader, err := convertGoSliceIntoLuaTable(location.GlobalRateLimit.IgnoredHeader, false)
 	if err != nil {
-		klog.Errorf("failed to convert %v into Lua table: %q", location.GlobalRateLimit.IgnoredCIDRs, err)
-		ignoredCIDRs = "{}"
+		klog.Errorf("failed to convert %v into Lua table: %q", location.GlobalRateLimit.IgnoredHeader, err)
+		ignoredHeader = "{}"
 	}
 
 	return fmt.Sprintf(`{
@@ -343,7 +343,7 @@ func locationConfigForLua(l interface{}, a interface{}) string {
 		ssl_redirect = %t,
 		force_no_ssl_redirect = %t,
 		use_port_in_redirects = %t,
-		global_throttle = { namespace = "%v", limit = %d, window_size = %d, key = %v, ignored_cidrs = %v },
+		global_throttle = { namespace = "%v", limit = %d, window_size = %d, key = %v, ignored_header = %v },
 	}`,
 		location.Rewrite.ForceSSLRedirect,
 		location.Rewrite.SSLRedirect,
@@ -353,7 +353,7 @@ func locationConfigForLua(l interface{}, a interface{}) string {
 		location.GlobalRateLimit.Limit,
 		location.GlobalRateLimit.WindowSize,
 		parseComplexNginxVarIntoLuaTable(location.GlobalRateLimit.Key),
-		ignoredCIDRs,
+		ignoredHeader,
 	)
 }
 

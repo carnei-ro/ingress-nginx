@@ -52,14 +52,14 @@ var _ = framework.DescribeAnnotation("annotation-global-rate-limit", func() {
 		assert.Contains(ginkgo.GinkgoT(), serverConfig,
 			fmt.Sprintf(`global_throttle = { namespace = "%v", `+
 				`limit = 5, window_size = 120, key = { { nil, nil, "remote_addr", nil, }, }, `+
-				`ignored_cidrs = { } }`,
+				`ignored_header = { } }`,
 				namespace))
 
 		f.HTTPTestClient().GET("/").WithHeader("Host", host).Expect().Status(http.StatusOK)
 
 		ginkgo.By("regenerating the correct configuration after update")
 		annotations["nginx.ingress.kubernetes.io/global-rate-limit-key"] = "${remote_addr}${http_x_api_client}"
-		annotations["nginx.ingress.kubernetes.io/global-rate-limit-ignored-cidrs"] = "192.168.1.1, 234.234.234.0/24"
+		annotations["nginx.ingress.kubernetes.io/global-rate-limit-ignored-header"] = "header-name, header-value01, header-value02, header-valueN"
 		ing.SetAnnotations(annotations)
 
 		f.WaitForReload(func() {
@@ -75,7 +75,7 @@ var _ = framework.DescribeAnnotation("annotation-global-rate-limit", func() {
 			fmt.Sprintf(`global_throttle = { namespace = "%v", `+
 				`limit = 5, window_size = 120, `+
 				`key = { { nil, "remote_addr", nil, nil, }, { nil, "http_x_api_client", nil, nil, }, }, `+
-				`ignored_cidrs = { "192.168.1.1", "234.234.234.0/24", } }`,
+				`ignored_header = { "header-name", "header-value01", "header-value02", "header-valueN", } }`,
 				namespace))
 
 		f.HTTPTestClient().GET("/").WithHeader("Host", host).Expect().Status(http.StatusOK)

@@ -81,7 +81,7 @@ func TestGlobalRateLimiting(t *testing.T) {
 	annRateLimit := parser.GetAnnotationWithPrefix("global-rate-limit")
 	annRateLimitWindow := parser.GetAnnotationWithPrefix("global-rate-limit-window")
 	annRateLimitKey := parser.GetAnnotationWithPrefix("global-rate-limit-key")
-	annRateLimitIgnoredCIDRs := parser.GetAnnotationWithPrefix("global-rate-limit-ignored-cidrs")
+	annRateLimitIgnoredHeader := parser.GetAnnotationWithPrefix("global-rate-limit-ignored-header")
 
 	testCases := []struct {
 		title          string
@@ -106,7 +106,7 @@ func TestGlobalRateLimiting(t *testing.T) {
 				Limit:        100,
 				WindowSize:   120,
 				Key:          "$remote_addr",
-				IgnoredCIDRs: make([]string, 0),
+				IgnoredHeader: make([]string, 0),
 			},
 			nil,
 		},
@@ -122,7 +122,7 @@ func TestGlobalRateLimiting(t *testing.T) {
 				Limit:        100,
 				WindowSize:   120,
 				Key:          "$http_x_api_user",
-				IgnoredCIDRs: make([]string, 0),
+				IgnoredHeader: make([]string, 0),
 			},
 			nil,
 		},
@@ -132,14 +132,14 @@ func TestGlobalRateLimiting(t *testing.T) {
 				annRateLimit:             "100",
 				annRateLimitWindow:       "2m",
 				annRateLimitKey:          "$http_x_api_user",
-				annRateLimitIgnoredCIDRs: "127.0.0.1, 200.200.24.0/24",
+				annRateLimitIgnoredHeader: "X-Client-Role, admin, root",
 			},
 			&Config{
 				Namespace:    expectedUID,
 				Limit:        100,
 				WindowSize:   120,
 				Key:          "$http_x_api_user",
-				IgnoredCIDRs: []string{"127.0.0.1", "200.200.24.0/24"},
+				IgnoredHeader: []string{"x-Client-Role", "admin", "root"},
 			},
 			nil,
 		},

@@ -88,7 +88,7 @@ describe("global_throttle", function()
     limit = 10,
     window_size = 60,
     key = {},
-    ignored_cidrs = {},
+    ignored_header = {},
   }
   local CONFIG = {
     memcached = {
@@ -101,7 +101,7 @@ describe("global_throttle", function()
   before_each(function()
     snapshot = assert:snapshot()
 
-    ngx.var = { remote_addr = "127.0.0.1", global_rate_limit_exceeding = nil }
+    ngx.var = { remote_addr = "127.0.0.1", global_rate_limit_exceeding = nil, http_x_client_role="admin" }
   end)
 
   after_each(function()
@@ -137,10 +137,10 @@ describe("global_throttle", function()
     end)
   end)
 
-  it("short circuits when remote_addr is in ignored_cidrs", function()
+  it("short circuits when X-Client-Role is in admin or root", function()
     local global_throttle = require_without_cache("global_throttle")
     local location_config = util.deepcopy(LOCATION_CONFIG)
-    location_config.ignored_cidrs = { ngx.var.remote_addr }
+    location_config.ignored_header = { "X-Client-Role", "admin", "root" }
     assert_short_circuits(function(global_throttle)
       assert.has_no.errors(function()
         global_throttle.throttle(CONFIG, location_config)

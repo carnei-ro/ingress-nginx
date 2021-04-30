@@ -1,5 +1,4 @@
 local resty_global_throttle = require("resty.global_throttle")
-local resty_ipmatcher = require("resty.ipmatcher")
 local util = require("util")
 
 local ngx = ngx
@@ -19,26 +18,27 @@ local CACHE_THRESHOLD = 0.001
 
 local DEFAULT_RAW_KEY = "remote_addr"
 
-local function should_ignore_request(ignored_cidrs)
-  if not ignored_cidrs or #ignored_cidrs == 0 then
+local function should_ignore_request(ignored_header)
+  -- { "header-name", "header-value01", "header-value02", "header-valueN" }
+  if not ignored_header or #ignored_header < 2 then
+    -- we expect the header name then header values
     return false
   end
 
-  local ignored_cidrs_matcher, err = resty_ipmatcher.new(ignored_cidrs)
-  if not ignored_cidrs_matcher then
-    ngx_log(ngx_ERR, "failed to initialize resty-ipmatcher: ", err)
+  local header_value = ngx.req.get_headers()[ignored_header[1]]
+  -- if header value does not exists perform rate limit evaluation
+  if not header_value then
     return false
   end
-
-  local is_ignored
-  is_ignored, err = ignored_cidrs_matcher:match(ngx.var.remote_addr)
-  if err then
-    ngx_log(ngx_ERR, "failed to match ip: '",
-      ngx.var.remote_addr, "': ", err)
-    return false
+  
+  for i = 2, #ignored_header do
+    -- if match, ignore this request for rate limit eval
+    if ignored_header[i] == header_value then
+      return true
+    end
   end
 
-  return is_ignored
+  return false
 end
 
 local function is_enabled(config, location_config)
@@ -50,7 +50,15 @@ local function is_enabled(config, location_config)
     return false
   end
 
-  if should_ignore_request(location_config.ignored_cidrs) then
+  -- Hack:
+  --  ignore rate limiting based on cidrs would not work for me
+  --  because all instances belong to the same network.
+  --  The hack consists in evaluate a Header and possible values
+  --
+  -- ignored_header will be a comma separated list, but
+  --  the first value it is the Header Name and the other values
+  --  are the possible match values
+  if should_ignore_request(location_config.ignored_header) then
     return false
   end
 

@@ -26,7 +26,6 @@ import (
 	"k8s.io/ingress-nginx/internal/ingress/annotations/parser"
 	ing_errors "k8s.io/ingress-nginx/internal/ingress/errors"
 	"k8s.io/ingress-nginx/internal/ingress/resolver"
-	"k8s.io/ingress-nginx/internal/net"
 	"k8s.io/ingress-nginx/internal/sets"
 )
 
@@ -34,11 +33,11 @@ const defaultKey = "$remote_addr"
 
 // Config encapsulates all global rate limit attributes
 type Config struct {
-	Namespace    string   `json:"namespace"`
-	Limit        int      `json:"limit"`
-	WindowSize   int      `json:"window-size"`
-	Key          string   `json:"key"`
-	IgnoredCIDRs []string `json:"ignored-cidrs"`
+	Namespace     string   `json:"namespace"`
+	Limit         int      `json:"limit"`
+	WindowSize    int      `json:"window-size"`
+	Key           string   `json:"key"`
+	IgnoredHeader []string `json:"ignored-header"`
 }
 
 // Equal tests for equality between two Config types
@@ -55,7 +54,7 @@ func (l *Config) Equal(r *Config) bool {
 	if l.Key != r.Key {
 		return false
 	}
-	if len(l.IgnoredCIDRs) != len(r.IgnoredCIDRs) || !sets.StringElementsMatch(l.IgnoredCIDRs, r.IgnoredCIDRs) {
+	if len(l.IgnoredHeader) != len(r.IgnoredHeader) || !sets.StringElementsMatch(l.IgnoredHeader, r.IgnoredHeader) {
 		return false
 	}
 
@@ -95,17 +94,17 @@ func (a globalratelimit) Parse(ing *networking.Ingress) (interface{}, error) {
 		key = defaultKey
 	}
 
-	rawIgnoredCIDRs, _ := parser.GetStringAnnotation("global-rate-limit-ignored-cidrs", ing)
-	ignoredCIDRs, err := net.ParseCIDRs(rawIgnoredCIDRs)
-	if err != nil {
-		return nil, err
+	rawIgnoredHeader, _ := parser.GetStringAnnotation("global-rate-limit-ignored-header", ing)
+	ignoredHeader := strings.Split(rawIgnoredHeader, ",")
+	for i := range ignoredHeader {
+		ignoredHeader[i] = strings.TrimSpace(ignoredHeader[i])
 	}
 
 	config.Namespace = strings.Replace(string(ing.UID), "-", "", -1)
 	config.Limit = limit
 	config.WindowSize = int(windowSize.Seconds())
 	config.Key = key
-	config.IgnoredCIDRs = ignoredCIDRs
+	config.IgnoredHeader = ignoredHeader
 
 	return config, nil
 }
