@@ -40,6 +40,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/klog/v2"
 
+	"k8s.io/ingress-nginx/internal/ingress/annotations/globalratelimit"
 	"k8s.io/ingress-nginx/internal/ingress/annotations/influxdb"
 	"k8s.io/ingress-nginx/internal/ingress/annotations/parser"
 	"k8s.io/ingress-nginx/internal/ingress/annotations/ratelimit"
@@ -436,13 +437,19 @@ func locationConfigForLua(l interface{}, a interface{}) string {
 		ignoredCIDRs = "{}"
 	}
 
+	headerBasedRT, err := convertHeaderBasedRateLimitIntoLuaTable(location.GlobalRateLimit.HeaderBasedRateLimits, false)
+	if err != nil {
+		klog.Errorf("failed to convert %v into Lua table: %q", location.GlobalRateLimit.HeaderBasedRateLimits, err)
+		headerBasedRT = "{}"
+	}
+
 	return fmt.Sprintf(`{
 		force_ssl_redirect = %t,
 		ssl_redirect = %t,
 		force_no_ssl_redirect = %t,
 		preserve_trailing_slash = %t,
 		use_port_in_redirects = %t,
-		global_throttle = { namespace = "%v", limit = %d, window_size = %d, key = %v, ignored_cidrs = %v },
+		global_throttle = { namespace = "%v", limit = %d, window_size = %d, key = %v, ignored_cidrs = %v, header_based = %v },
 	}`,
 		location.Rewrite.ForceSSLRedirect,
 		location.Rewrite.SSLRedirect,
@@ -454,6 +461,7 @@ func locationConfigForLua(l interface{}, a interface{}) string {
 		location.GlobalRateLimit.WindowSize,
 		parseComplexNginxVarIntoLuaTable(location.GlobalRateLimit.Key),
 		ignoredCIDRs,
+		headerBasedRT,
 	)
 }
 
@@ -1749,6 +1757,27 @@ func parseComplexNginxVarIntoLuaTable(ngxVar string) string {
 		luaTable = "{}"
 	}
 	return luaTable
+}
+
+func convertHeaderBasedRateLimitIntoLuaTable(obj []globalratelimit.HeaderBasedRateLimit, emptyStringAsNil bool) (string, error) {
+	if len(obj) == 0 {
+		return "{}", nil
+	}
+	luaTable := "{ "
+	for i := 0; i < len(obj); i++ {
+		luaTable += " { "
+		luaTable += (" ['header-name'] = '" + obj[i].HeaderName + "', ")
+		headerValues, err := convertGoSliceIntoLuaTable(obj[i].HeaderValues, emptyStringAsNil)
+		if err != nil {
+			return "{}", fmt.Errorf("could not process type Header Base Rate Limit Object")
+		}
+		luaTable += (" ['header-values'] = " + headerValues + ", ")
+		luaTable += (" ['window'] = " + strconv.Itoa(obj[i].WindowSize) + ", ")
+		luaTable += (" ['limit'] = " + strconv.Itoa(obj[i].Limit) + ", ")
+		luaTable += (" }, ")
+	}
+	luaTable += " }"
+	return luaTable, nil
 }
 
 func convertGoSliceIntoLuaTable(goSliceInterface interface{}, emptyStringAsNil bool) (string, error) {
